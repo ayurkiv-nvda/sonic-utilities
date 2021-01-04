@@ -23,6 +23,7 @@ expected_counterpoll_show = """Type                    Interval (in ms)  Status
 QUEUE_STAT                         10000  enable
 PORT_STAT                           1000  enable
 PORT_BUFFER_DROP                   60000  enable
+PG_DROP_STAT                       10000  enable
 QUEUE_WATERMARK_STAT               10000  enable
 PG_WATERMARK_STAT                  10000  enable
 """
@@ -54,6 +55,20 @@ class TestCounterpoll(object):
         assert result.exit_code == 2
         assert expected in result.output
 
+    def test_pg_drop_interval(self):
+        runner = CliRunner()
+        result = runner.invoke(counterpoll.cli.commands["pg-drop"].commands["interval"], ["10000"])
+        print(result.output)
+        assert result.exit_code == 0
+
+    def test_pg_drop_interval_too_long(self):
+        runner = CliRunner()
+        result = runner.invoke(counterpoll.cli.commands["pg-drop"].commands["interval"], ["50000"])
+        print(result.output)
+        expected = "Invalid value for \"POLL_INTERVAL\": 50000 is not in the valid range of 1000 to 30000."
+        assert result.exit_code == 2
+        assert expected in result.output
+
     @pytest.fixture(scope='class')
     def _get_config_db_file(self):
         sample_config_db_file = os.path.join(test_path, "counterpoll_input", "config_db.json")
@@ -75,6 +90,13 @@ class TestCounterpoll(object):
         if "FLEX_COUNTER_TABLE" in config_db:
             for counter, counter_config in config_db["FLEX_COUNTER_TABLE"].items():
                 assert counter_config["FLEX_COUNTER_STATUS"] == status
+
+    @pytest.mark.parametrize("status", ["disable", "enable"])
+    def test_update_pg_drop_status(self, status):
+        runner = CliRunner()
+        result = runner.invoke(counterpoll.cli.commands["pg-drop"].commands[status])
+        print(result.output)
+        assert result.exit_code == 0
 
     @classmethod
     def teardown_class(cls):
