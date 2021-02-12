@@ -605,6 +605,17 @@ def wm_pg_shared():
     command = 'watermarkstat -t pg_shared'
     run_command(command)
 
+@priority_group.group()
+def drop():
+    """Show PG"""
+    pass
+
+@drop.command('counters')
+def pg_drop_counters():
+    """Show dropped packets for PG"""
+    command = 'pg-drop -c show'
+    run_command(command)
+
 @priority_group.group(name='persistent-watermark')
 def persistent_watermark():
     """Show priority-group persistent WM"""
