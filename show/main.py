@@ -607,12 +607,12 @@ def wm_pg_shared():
 
 @priority_group.group()
 def drop():
-    """Show PG"""
+    """Show priority-group"""
     pass
 
 @drop.command('counters')
 def pg_drop_counters():
-    """Show dropped packets for PG"""
+    """Show dropped packets for priority-group"""
     command = 'pg-drop -c show'
     run_command(command)
 

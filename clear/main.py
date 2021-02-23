@@ -218,12 +218,12 @@ def clear_wm_pg_shared():
 
 @priority_group.group()
 def drop():
-    """Clear PG dropped packets stats"""
+    """Clear priority-group dropped packets stats"""
     pass
 
 @drop.command('counters')
 def clear_pg_counters():
-    """Clear PG dropped packets counter """
+    """Clear priority-group dropped packets counter """
     command = 'pg-drop -c clear'
     run_command(command)
 

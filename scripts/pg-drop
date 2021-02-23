@@ -50,13 +50,15 @@ class PgDropStat(object):
         dropstat_dir = get_dropstat_dir()
         self.port_drop_stats_file = os.path.join(dropstat_dir, 'pg_drop_stats')
 
-        def get_pg_port(table_id):
-            port_table_id = self.counters_db.get(self.counters_db.COUNTERS_DB, COUNTERS_PG_PORT_MAP, table_id)
-            if port_table_id is None:
-                print("Port is not available in table '{}'".format(table_id), file=sys.stderr)
+        def get_port_id(oid):
+            """
+                Get port ID using object ID
+            """
+            port_id = self.counters_db.get(self.counters_db.COUNTERS_DB, COUNTERS_PG_PORT_MAP, oid)
+            if port_id is None:
+                print("Port is not available for oid '{}'".format(oid), file=sys.stderr)
                 sys.exit(1)
-
-            return port_table_id
+            return port_id
 
         # Get all ports
         self.counter_port_name_map = self.counters_db.get_all(self.counters_db.COUNTERS_DB, COUNTERS_PORT_NAME_MAP)
@@ -78,7 +80,7 @@ class PgDropStat(object):
             sys.exit(1)
 
         for pg in counter_pg_name_map:
-            port = self.port_name_map[get_pg_port(counter_pg_name_map[pg])]
+            port = self.port_name_map[get_port_id(counter_pg_name_map[pg])]
             self.port_pg_map[port][pg] = counter_pg_name_map[pg]
 
         self.pg_drop_types = {
@@ -89,15 +91,22 @@ class PgDropStat(object):
                                "header_prefix": "PG"},
         }
 
-    def get_pg_index(self, table_id):
-        pg_index = self.counters_db.get(self.counters_db.COUNTERS_DB, COUNTERS_PG_INDEX_MAP, table_id)
-        if pg_index is None:
-            print("Priority group index is not available in table '{}'".format(table_id), file=sys.stderr)
-            sys.exit(1)
+    def get_pg_index(self, oid):
+        """
+            return PG index (0-7)
 
+            oid - object ID for entry in redis
+        """
+        pg_index = self.counters_db.get(self.counters_db.COUNTERS_DB, COUNTERS_PG_INDEX_MAP, oid)
+        if pg_index is None:
+            print("Priority group index is not available for oid '{}'".format(table_id), file=sys.stderr)
+            sys.exit(1)
         return pg_index
 
     def build_header(self, pg_drop_type):
+        """
+            Construct header for table with PG counters
+        """
         if pg_drop_type is None:
             print("Header info is not available!", file=sys.stderr)
             sys.exit(1)
@@ -140,6 +149,9 @@ class PgDropStat(object):
         return fields
 
     def print_all_stat(self, table_prefix, key):
+        """
+            Print table that show stats per PG
+        """
         table = []
         type = self.pg_drop_types[key]
         self.build_header(type)
@@ -213,7 +225,6 @@ pg-drop -c clear
 
     args = parser.parse_args()
     command = args.command
-
 
     dropstat_dir = get_dropstat_dir()
     # Create the directory to hold clear results
