@@ -58,7 +58,7 @@ class TestCounterpoll(object):
     def test_pg_drop_interval_too_long(self):
         runner = CliRunner()
         result = runner.invoke(counterpoll.cli.commands["pg-drop"].commands["interval"], ["50000"])
-        print(result.output)
+        #print(result.output)
         expected = "Invalid value for \"POLL_INTERVAL\": 50000 is not in the valid range of 1000 to 30000."
         assert result.exit_code == 2
         assert expected in result.output
