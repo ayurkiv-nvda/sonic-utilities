@@ -9,7 +9,6 @@ import _pickle as pickle
 import argparse
 import os
 import sys
-from swsscommon.swsscommon import ConfigDBConnector
 from collections import OrderedDict
 
 from natsort import natsorted
@@ -27,7 +26,7 @@ try:
 except KeyError:
     pass
 
-from swsscommon.swsscommon import SonicV2Connector
+from swsscommon.swsscommon import ConfigDBConnector, SonicV2Connector
 
 STATUS_NA = 'N/A'
 
