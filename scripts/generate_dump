@@ -761,8 +761,8 @@ collect_mellanox() {
     local sai_dump_folder="/tmp/saisdkdump"
     local sai_dump_filename="${sai_dump_folder}/sai_sdk_dump_$(date +"%m_%d_%Y_%I_%M_%p")"
 
-    ${CMD_PREFIX}docker exec -it syncd mkdir -p $sai_dump_folder
-    ${CMD_PREFIX}docker exec -it syncd saisdkdump -f $sai_dump_filename
+    ${CMD_PREFIX}docker exec syncd mkdir -p $sai_dump_folder
+    ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
 
     copy_from_docker syncd $sai_dump_folder $sai_dump_folder
     echo "$sai_dump_folder"
@@ -771,7 +771,7 @@ collect_mellanox() {
     done
 
     ${CMD_PREFIX}rm -rf $sai_dump_folder
-    ${CMD_PREFIX}docker exec -it syncd rm -rf $sai_dump_folder
+    ${CMD_PREFIX}docker exec syncd rm -rf $sai_dump_folder
     
     # Save SDK error dumps
     local sdk_dump_path=`${CMD_PREFIX}docker exec syncd cat /tmp/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
