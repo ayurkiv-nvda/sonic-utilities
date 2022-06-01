@@ -269,7 +269,7 @@ class ConfigMgmt():
             raise
 
     @staticmethod
-    def get_module_name(yang_module_str):
+    def get_module_name(self, yang_module_str):
         """
         Read yangs module name from yang_module_str
 
