@@ -33,6 +33,7 @@ except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
 ENV_VARIABLE_SX_SNIFFER = 'SX_SNIFFER_ENABLE'
+ENV_VARIABLE_SAI_SNIFFER_ENABLE = 'SAI_SNIFFER_ENABLE'
 CONTAINER_NAME = 'syncd'
 SNIFFER_CONF_FILE = '/etc/supervisor/conf.d/mlnx_sniffer.conf'
 SNIFFER_CONF_FILE_IN_CONTAINER = CONTAINER_NAME + ':' + SNIFFER_CONF_FILE
@@ -136,8 +137,8 @@ def is_issu_status_enabled():
 @mlnx.command('sniffer')
 def sniffer_status():
     """ Show sniffer status """
-    components = ['sdk']
-    env_variable_strings = [ENV_VARIABLE_SX_SNIFFER]
+    components = ['sdk', 'sai']
+    env_variable_strings = [ENV_VARIABLE_SX_SNIFFER, ENV_VARIABLE_SAI_SNIFFER_ENABLE]
     for index in range(len(components)):
         enabled = sniffer_status_get(env_variable_strings[index])
         if enabled is True:

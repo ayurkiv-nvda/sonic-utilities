@@ -25,6 +25,7 @@
 try:
     import os
     import time
+    import re
 
     import click
     from sonic_py_common import logger
@@ -41,10 +42,17 @@ SNIFFER_SYSLOG_IDENTIFIER = "sniffer"
 ENV_VARIABLE_SX_SNIFFER = 'SX_SNIFFER_ENABLE'
 ENV_VARIABLE_SX_SNIFFER_TARGET = 'SX_SNIFFER_TARGET'
 
+# SAI sniffer env variable
+ENV_VARIABLE_SAI_SNIFFER_ENABLE = 'SAI_SNIFFER_ENABLE'
+ENV_VARIABLE_SAI_SNIFFER_FILE = 'SAI_SNIFFER_FILE'
+
+
 # SDK sniffer file path and name
-SDK_SNIFFER_TARGET_PATH = '/var/log/mellanox/sniffer/'
+SNIFFER_TARGET_PATH = '/var/log/mellanox/sniffer/'
 SDK_SNIFFER_FILENAME_PREFIX = 'sx_sdk_sniffer_'
+SAI_SNIFFER_FILENAME_PREFIX = 'sai_sniffer_'
 SDK_SNIFFER_FILENAME_EXT = '.pcap'
+SAI_SNIFFER_FILENAME_EXT = '.log'
 
 # Supervisor config file path
 TMP_SNIFFER_CONF_FILE = '/tmp/tmp.conf'
@@ -69,10 +77,13 @@ def sniffer_filename_generate(path, filename_prefix, filename_ext):
 
 # write environment variable in local tmp file for sniffer
 def env_variable_write(env_variable_string):
+    env_already_exist = env_variable_read("environment=")
+
     conf_file = open(TMP_SNIFFER_CONF_FILE, 'a')
     if os.path.getsize(TMP_SNIFFER_CONF_FILE) == 0:
         conf_file.write('[program:syncd]\n')
-    conf_file.write(env_variable_string)
+
+    conf_file.write(env_variable_string if env_already_exist else "environment=" + env_variable_string)
     conf_file.close()
 
 
@@ -87,16 +98,17 @@ def env_variable_read(env_variable_name):
     return env_variable_string
 
 
-def env_variable_delete(delete_line):
-    conf_file = open(TMP_SNIFFER_CONF_FILE, 'r+')
-    all_lines = conf_file.readlines()
-    conf_file.seek(0)
-    for line in all_lines:
-        if line != delete_line:
-            conf_file.write(line)
-    conf_file.truncate()
-    conf_file.close()
+def env_variable_delete(variable_to_remove):
+    with open(TMP_SNIFFER_CONF_FILE, 'r') as file:
+        config_content = file.read()
 
+    config_content = re.sub(rf'{variable_to_remove}=[^,]*,?', '', config_content, flags=re.MULTILINE)
+    click.echo("new content: {}".format(config_content))
+
+    # Write the modified content back to the configuration file
+    with open(TMP_SNIFFER_CONF_FILE, 'w') as file:
+        file.write(config_content if config_content[-1] != '='  else '[program:syncd]\n')
+        file.close()
 
 def conf_file_copy(src, dest):
     command = ['docker', 'cp', str(src), str(dest)]
@@ -123,7 +135,7 @@ def sniffer_env_variable_set(enable, env_variable_name, env_variable_string=""):
             click.echo("sniffer is already enabled, do nothing")
             ignore = True
         else:
-            env_variable_delete(env_variable_exist_string)
+            env_variable_delete(env_variable_name)
     else:
         if enable is True:
             env_variable_write(env_variable_string)
@@ -179,6 +191,13 @@ def sdk():
     pass
 
 
+# 'sai' subgroup
+@sniffer.group()
+def sai():
+    """SAI Sniffer - Command Line to enable/disable SAI sniffer"""
+    pass
+
+
 @sdk.command()
 @click.option('-y', '--yes', is_flag=True, callback=_abort_if_false, expose_value=False,
               prompt='Swss service will be restarted, continue?')
@@ -187,6 +206,16 @@ def enable():
     click.echo("Enabling SDK sniffer")
     sdk_sniffer_enable()
     click.echo("Note: the sniffer file may exhaust the space on /var/log, please disable it when you are done with this sniffering.")
+
+
+@sai.command()
+@click.option('-y', '--yes', is_flag=True, callback=_abort_if_false, expose_value=False,
+              prompt='Swss service will be restarted, continue?')
+def enable():
+    """Enable SAI Sniffer"""
+    click.echo("Enabling SAI sniffer")
+    sai_sniffer_enable()
+    click.echo("Note: the sniffer file may exhaust the space on /var/log <????>, please disable it when you are done with this sniffering.")
 
 
 @sdk.command()
@@ -198,24 +227,33 @@ def disable():
     sdk_sniffer_disable()
 
 
+@sai.command()
+@click.option('-y', '--yes', is_flag=True, callback=_abort_if_false, expose_value=False,
+              prompt='Swss service will be restarted, continue?')
+def disable():
+    """Disable SAI Sniffer"""
+    click.echo("Disabling SAI sniffer")
+    sai_sniffer_disable()
+
+
 def sdk_sniffer_enable():
     """Enable SDK Sniffer"""
-    sdk_sniffer_filename = sniffer_filename_generate(SDK_SNIFFER_TARGET_PATH,
+    sdk_sniffer_filename = sniffer_filename_generate(SNIFFER_TARGET_PATH,
                                                      SDK_SNIFFER_FILENAME_PREFIX,
                                                      SDK_SNIFFER_FILENAME_EXT)
     sdk_sniffer_env_variable_dict = {ENV_VARIABLE_SX_SNIFFER: "1" + ",",
                                      ENV_VARIABLE_SX_SNIFFER_TARGET: sdk_sniffer_filename}
-    sdk_sniffer_env_variable_string = "environment="
+    sdk_sniffer_env_variable_string = ""
 
     for env_variable_name, env_variable_value in sdk_sniffer_env_variable_dict.items():
         sdk_sniffer_env_variable_string += (env_variable_name + "=" + env_variable_value)
 
-    sdk_sniffer_env_variable_string += "\n"
+    sdk_sniffer_env_variable_string += ","
 
     ignore = sniffer_env_variable_set(enable=True, env_variable_name=ENV_VARIABLE_SX_SNIFFER,
                                       env_variable_string=sdk_sniffer_env_variable_string)
     if not ignore:
-        err = restart_swss()
+        err = 0#restart_swss()
         if err is not 0:
             return
         click.echo('SDK sniffer is Enabled, recording file is %s.' % sdk_sniffer_filename)
@@ -223,18 +261,54 @@ def sdk_sniffer_enable():
         pass
 
 
+def sai_sniffer_enable():
+    """Enable SDK Sniffer"""
+    sai_sniffer_filename = sniffer_filename_generate(SNIFFER_TARGET_PATH,
+                                                     SAI_SNIFFER_FILENAME_PREFIX,
+                                                     SAI_SNIFFER_FILENAME_EXT)
+    sai_sniffer_env_variable_dict = {ENV_VARIABLE_SAI_SNIFFER_ENABLE: "1" + ",",
+                                     ENV_VARIABLE_SAI_SNIFFER_FILE: sai_sniffer_filename}
+    sai_sniffer_env_variable_string = ""
+
+    for env_variable_name, env_variable_value in sai_sniffer_env_variable_dict.items():
+        sai_sniffer_env_variable_string += (env_variable_name + "=" + env_variable_value)
+
+    sai_sniffer_env_variable_string += ","
+
+    ignore = sniffer_env_variable_set(enable=True, env_variable_name=ENV_VARIABLE_SAI_SNIFFER_ENABLE,
+                                      env_variable_string=sai_sniffer_env_variable_string)
+    if not ignore:
+        err = 0#restart_swss()
+        if err is not 0:
+            return
+        click.echo('SAI sniffer is Enabled, recording file is %s.' % sai_sniffer_filename)
+    else:
+        pass
+
+
 def sdk_sniffer_disable():
     """Disable SDK Sniffer"""
 
-    ignore = sniffer_env_variable_set(enable=False, env_variable_name=ENV_VARIABLE_SX_SNIFFER)
+    ignore = sniffer_env_variable_set(enable=False, env_variable_name=ENV_VARIABLE_SX_SNIFFER) or sniffer_env_variable_set(enable=False, env_variable_name=ENV_VARIABLE_SX_SNIFFER_TARGET)
     if not ignore:
-        err = restart_swss()
+        err = 0 #restart_swss()
         if err is not 0:
             return
         click.echo("SDK sniffer is Disabled.")
     else:
         pass
 
+def sai_sniffer_disable():
+    """Disable SAI Sniffer"""
+
+    ignore = sniffer_env_variable_set(enable=False, env_variable_name=ENV_VARIABLE_SAI_SNIFFER_ENABLE) or sniffer_env_variable_set(enable=False, env_variable_name=ENV_VARIABLE_SAI_SNIFFER_FILE)
+    if not ignore:
+        err = 0 #restart_swss()
+        if err is not 0:
+            return
+        click.echo("SAI sniffer is Disabled.")
+    else:
+        pass
 
 # place holders for 'sniff prm enable/disable' and 'sniffer all enable/disable'
 # @sniffer.command()
